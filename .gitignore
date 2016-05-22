@@ -1,6 +1,5 @@
 data/
 *.pyc
-*.ipynb
 
 # ============ #
 # OS generated #

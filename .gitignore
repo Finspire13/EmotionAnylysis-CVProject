@@ -1,5 +1,6 @@
 data/
 *.pyc
+classifier/
 
 # ============ #
 # OS generated #

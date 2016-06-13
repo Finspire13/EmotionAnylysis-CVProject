@@ -5,7 +5,53 @@ from sklearn import svm
 import time
 
 class EmotionPredictor:
-    def startPredictionFromCamera(self,clf,featureMeans,featureVariance):
+    def computeSimilarityToStandardEmotion(self,scores,standard):
+        size=len(standard[0])
+        stretchedScores=[]
+        for i in range(8):
+            temp=[0]*size
+            stretchedScores.append(temp)
+        
+        for i in range(size):
+            j=int(i*len(scores[0])/len(stretchedScores[0]))
+            #print str(i)+" "+str(j)
+            for x in range(8):
+                stretchedScores[x][i]=scores[x][j]
+                
+        difference=0
+        for i in range(size):
+            for j in range(8):
+                difference+=abs(standard[j][i]-stretchedScores[j][i])
+                #print abs(standard[j][i]-stretchedScores[j][i])
+        
+        maxDifference=0
+        for i in range(size):
+            for j in range(8):
+                if standard[j][i]<0.5:
+                    maxDifference+=(1-standard[j][i])
+                else:
+                    maxDifference+=standard[j][i]
+        
+        similarity=(maxDifference-difference)/maxDifference*100
+        
+        #print difference,maxDifference
+        return similarity,stretchedScores
+        
+    
+    def adjustEmotionScores(self,probaResult,metric):
+    	pool=0
+    	for i in range(8):
+    		if metric[i]<0:
+    			pool+=probaResult[0,i]*abs(metric[i])
+    			probaResult[0,i]*=1+metric[i]
+    	for i in range(8):
+    		if metric[i]>0:
+    			probaResult[0,i]+=pool*metric[i]
+
+    	#print pool
+    	return probaResult
+    
+    def startPredictionFromCamera(self,clf,featureMeans,featureVariance,metric,timeLimit):
         #test
         face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
         eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml') 
@@ -16,11 +62,13 @@ class EmotionPredictor:
         plotBuffer=[[0.125],[0.125],[0.125],[0.125],[0.125],[0.125],[0.125],[0.125]]
         timeInterval=0.5
         lastUpdatedTime=time.time()
+        startTime=time.time()
         #####
         probaResult=np.array([[0.125,0.125,0.125,0.125,0.125,0.125,0.125,0.125]])
         textLabelMap={0.0:'Neutral',1.0:'Anger',2.0:'Contempt',3.0:'Disgust',4.0:'Fear',5.0:'Happy',6.0:'Sadness',7.0:'Surprise'}
-        while(True):
+        while(time.time()-startTime<timeLimit):
             # Capture frame-by-frame
+            #print time.time()-startTime
             ret, frame = cap.read()
 
             # Our operations on the frame come here
@@ -36,6 +84,7 @@ class EmotionPredictor:
             for (x,y,w,h) in faces:
                 roi_gray = gray[y:y+h, x:x+w]
                 roi_gray = cv2.resize(roi_gray,(256, 256), interpolation = cv2.INTER_CUBIC)
+                
                             
                 #testImageFeatures=[]
                 #for i in range(4):
@@ -48,12 +97,21 @@ class EmotionPredictor:
                 testImageFeatures=np.array(testImageFeatures)
                 testImageFeatures-=featureMeans
                 testImageFeatures/=featureVariance
-                resultLabel=clf.predict(testImageFeatures.reshape(1, -1))
-                textResult=textLabelMap[resultLabel[0]]
                 probaResult=clf.predict_proba(np.array(testImageFeatures).reshape(1, -1))
+                probaResult=self.adjustEmotionScores(probaResult,metric)
+
+
+                maxIndex=0
+                maxValue=0
+                for r in range(8):
+                	if probaResult[0,r]>maxValue:
+                		maxValue=probaResult[0,r]
+                		maxIndex=r
+                textResult=textLabelMap[maxIndex]
                 #print resultLabel
         
                 #####show on screen
+                
                 cv2.rectangle(frame,(x,y),(x+w,y+h),(255,0,0),2)
                 for index in range(8):
                     textTemp=textLabelMap[float(index)]
@@ -92,6 +150,7 @@ class EmotionPredictor:
 
         
             cv2.putText(frame,textResult, (35,400), cv2.FONT_HERSHEY_SIMPLEX, 2, [100,100,255],5)
+            cv2.putText(frame,"Press Q to quit", (800,50), cv2.FONT_HERSHEY_SIMPLEX, 1, [100,100,255],2)
             # Display the resulting frame
             cv2.imshow('frame',frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -102,7 +161,7 @@ class EmotionPredictor:
         cv2.destroyAllWindows()
         return plotBuffer
     
-    def predictOneImage(self,clf,frame,featureMeans,featureVariance):
+    def predictOneImage(self,clf,frame,featureMeans,featureVariance,metric):
         face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
         eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml')
 
@@ -129,13 +188,21 @@ class EmotionPredictor:
             testImageFeatures=np.array(testImageFeatures)
             testImageFeatures-=featureMeans
             testImageFeatures/=featureVariance
-            resultLabel=clf.predict(np.array(testImageFeatures).reshape(1, -1))
-            textResult=textLabelMap[resultLabel[0]]
+
+            probaResult=clf.predict_proba(np.array(testImageFeatures).reshape(1, -1))
+            probaResult=self.adjustEmotionScores(probaResult,metric)
+
+            maxIndex=0
+            maxValue=0
+            for r in range(8):
+            	if probaResult[0,r]>maxValue:
+            		maxValue=probaResult[0,r]
+               		maxIndex=r
+            textResult=textLabelMap[maxIndex]
             #print testImageFeatures
             #print resultLabel
     
             #####show on screen
-            probaResult=clf.predict_proba(np.array(testImageFeatures).reshape(1, -1))
             #print probaResult
             for index in range(8):
                 textTemp=textLabelMap[float(index)]

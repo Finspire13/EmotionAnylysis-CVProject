@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 import pickle
+import DataProcessor
+import EmotionLearner
 from sklearn import svm
 import matplotlib.pyplot as plt
 

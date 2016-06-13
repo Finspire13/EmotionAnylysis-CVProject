@@ -1,6 +1,8 @@
 import numpy as np
 import cv2
 import pickle
+import EmotionPredictor
+import PlotEmotion
 
 #load data and svm
 with open('classifier/trainingDataCK.pkl', 'rb') as input:

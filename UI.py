@@ -1,6 +1,11 @@
 import Tkinter as tk
 import time
- 
+import numpy as np
+import cv2
+import pickle
+import EmotionPredictor
+import EmotionPlotter
+
 class StartFrame(tk.Frame):
     ''' An example application for TkInter.  Instantiate
         and call the run method to run. '''
@@ -108,6 +113,22 @@ class PlayFrame(tk.Frame):
 
         self.button2 = tk.Button(self, text="Quit", command=self.close)
         self.button2.pack()
+    
+        self.button3 = tk.Button(self, text="Free Try", command=self.freeTry)
+        self.button3.pack()
+        
+        with open('classifier/trainingDataCK.pkl', 'rb') as input:
+            self.data = pickle.load(input)
+            self.label = pickle.load(input)
+            self.featureMeans = pickle.load(input)
+            self.featureVariance = pickle.load(input)
+
+        with open('classifier/svmCK.pkl', 'rb') as input:
+            self.clf = pickle.load(input)
+
+        self.emotionPredictor=EmotionPredictor.EmotionPredictor()
+        self.emotionPlotter=EmotionPlotter.EmotionPlotter()
+        self.standardMetric=[0.02,0.06,0.06,0.06,0.06,0.06,0.06,-0.38]
         
     def startPlay(self):
         print self.greeting_var.get()
@@ -122,10 +143,24 @@ class PlayFrame(tk.Frame):
 
         self.labelVar.set("Go!")
 
+        plotBuffer=self.emotionPredictor.startPredictionFromCamera(self.clf,self.featureMeans,self.featureVariance,self.standardMetric,20)
+        size=45
+        standard=[]
+        for i in range(8):
+        	temp=[0]*size
+        	standard.append(temp)
+
+        score,s=self.emotionPredictor.computeSimilarityToStandardEmotion(plotBuffer,standard)
+
         self.destroy()
         ef = EndFrame(master)
-        ef.setScore(100)
+        ef.setScore(score)
         ef.run()
+
+    def freeTry(self):
+        plotBuffer=self.emotionPredictor.startPredictionFromCamera(self.clf,self.featureMeans,self.featureVariance,self.standardMetric,1000)
+        
+        self.emotionPlotter.plotEmotions(plotBuffer)
 
     def run(self):
         ''' Run the app '''

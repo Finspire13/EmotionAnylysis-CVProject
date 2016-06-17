@@ -21,20 +21,24 @@ class EmotionPredictor:
         difference=0
         for i in range(size):
             for j in range(8):
-                difference+=abs(standard[j][i]-stretchedScores[j][i])
+                difference+=(standard[j][i]-stretchedScores[j][i])*(standard[j][i]-stretchedScores[j][i])
                 #print abs(standard[j][i]-stretchedScores[j][i])
         
+        #print stretchedScores
+        #print 
         maxDifference=0
         for i in range(size):
             for j in range(8):
                 if standard[j][i]<0.5:
-                    maxDifference+=(1-standard[j][i])
+                    #maxDifference+=(1-standard[j][i])*(1-standard[j][i])
+                    maxDifference+=0.25
                 else:
-                    maxDifference+=standard[j][i]
+                    #maxDifference+=standard[j][i]*standard[j][i]
+                    maxDifference+=0.25
         
-        similarity=(maxDifference-difference)/maxDifference*100
+        similarity=((maxDifference-difference)/maxDifference)**3*100
         
-        #print difference,maxDifference
+        print difference,maxDifference,similarity
         return similarity,stretchedScores
         
     
@@ -51,7 +55,7 @@ class EmotionPredictor:
     	#print pool
     	return probaResult
     
-    def startPredictionFromCamera(self,clf,featureMeans,featureVariance,metric,timeLimit):
+    def startPredictionFromCamera(self,clf,featureMeans,featureVariance,metric,timeLimit,captions):
         #test
         face_cascade = cv2.CascadeClassifier('haarcascade_frontalface_alt.xml')
         eye_cascade = cv2.CascadeClassifier('haarcascade_eye_tree_eyeglasses.xml') 
@@ -63,10 +67,13 @@ class EmotionPredictor:
         timeInterval=0.5
         lastUpdatedTime=time.time()
         startTime=time.time()
+        captionIndex=0
+        captionText=""
         #####
         probaResult=np.array([[0.125,0.125,0.125,0.125,0.125,0.125,0.125,0.125]])
         textLabelMap={0.0:'Neutral',1.0:'Anger',2.0:'Contempt',3.0:'Disgust',4.0:'Fear',5.0:'Happy',6.0:'Sadness',7.0:'Surprise'}
         while(time.time()-startTime<timeLimit):
+
             # Capture frame-by-frame
             #print time.time()-startTime
             ret, frame = cap.read()
@@ -148,13 +155,22 @@ class EmotionPredictor:
                     smoothBuffer[index].append(probaResult[0,index])
             #######
 
-        
+            #show captions
+            if captionIndex!=len(captions):
+                if time.time()-startTime>captions[captionIndex].keys()[0]:
+                    print captions[captionIndex].values()[0]
+                    captionText=captions[captionIndex].values()[0]
+                    captionIndex+=1
+                        
+            cv2.putText(frame,captionText, (300,700), cv2.FONT_HERSHEY_SIMPLEX, 2, [100,100,255],4)
             cv2.putText(frame,textResult, (35,400), cv2.FONT_HERSHEY_SIMPLEX, 2, [100,100,255],5)
             cv2.putText(frame,"Press Q to quit", (800,50), cv2.FONT_HERSHEY_SIMPLEX, 1, [100,100,255],2)
             # Display the resulting frame
             cv2.imshow('frame',frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
+
+
 
         # When everything done, release the capture
         cap.release()

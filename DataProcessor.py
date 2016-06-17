@@ -88,7 +88,10 @@ class DataProcessor:
             featureMeans.append(tempMean)
     
             tempVariance=np.sqrt(np.var(feature))
-            feature/=tempVariance
+            if tempVariance!=0:
+                feature/=tempVariance
+            else:
+                print "zero var"
             featureVariance.append(tempVariance)
     
             data[:,i]=feature
